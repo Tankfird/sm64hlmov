@@ -28,9 +28,11 @@ local TYPE_RNG = 1
 local TYPE_POSITION = 2
 local TYPE_VEL = 3
 local TYPE_WARP = 4
+local TYPE_AUTO = 5
 
 local floor = math.floor
 local sqrt = math.sqrt
+
 
 local function ClearTable(tbl)
 	for i, v in ipairs(tbl) do tbl[i] = nil end
@@ -60,6 +62,19 @@ local function AddTasInput(timeoffset,buttonflags,yawspeed,pitchspeed,joyX,joyY)
 		x = joyX,
 		y = joyY
 	}
+end
+
+local function AddTasAutoInput(timeoffset,buttonflags,targetYaw)
+	for i = gActiveFrameNum + 1, gActiveFrameNum + timeoffset do
+		if (gRecordedInputs[i] == nil) then gRecordedInputs[i] = {} end
+		gRecordedInputs[i][0] = {
+			t = TYPE_AUTO,
+			buttons = buttonflags,
+			tYaw = targetYaw
+		}
+	end
+	
+	gActiveFrameNum = gActiveFrameNum + timeoffset
 end
 
 local function AddTasWarp(timeoffset,level,act,area)
@@ -119,6 +134,14 @@ local function ProcessTASFrame()
 				m.vel.x = frameData.x
 				m.vel.y = frameData.y
 				m.vel.z = frameData.z
+			elseif (frameData.t == TYPE_AUTO) then
+				-- Not a fan of this assignment, probably could allow access via api
+				gCurrentFrameInputs, 
+				gJoystickX, 
+				gJoystickY, 
+				gJoystickMag, 
+				gYawSpeed, 
+				gPitchSpeed = _G.smstrafe.tasAuto(frameData, m)
 			end
 			i = i + 1
 		end
@@ -175,6 +198,7 @@ hook_chat_command("frame", "Frame Advance", function(msg)
 	return true
 end)
 
+
 hook_event(HOOK_BEFORE_PHYS_STEP, function(m,i)
 	if (gFrameAdvanceCount < 1 and gFrameAdvanceCount > -1 and gFrameAdvanceEnabled) then return -1 end
 	return nil
@@ -228,9 +252,13 @@ hook_event(HOOK_UPDATE, function()
 	end
 end)
 
+
+
+
 local tasData = {
 	Clear = ClearTasInputs,
 	AddInputs = AddTasInput,
+	AddAuto = AddTasAutoInput,
 	AddRNG = AddTasRNG,
 	AddWarp = AddTasWarp,
 	AddPos = AddTasInputPosition,
